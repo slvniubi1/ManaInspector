@@ -1,0 +1,31 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MIT"
+
+[[mods]]
+modId="mana_inspector"
+version="1.0.0"
+displayName="Mana Inspector"
+authors="slvniubi1"
+description='''A small client-side HUD addon for Botania that shows a mana pool's current mana, capacity, percentage, and bar.'''
+
+[[dependencies.mana_inspector]]
+modId="neoforge"
+type="required"
+versionRange="[21.1,)"
+ordering="NONE"
+side="CLIENT"
+
+[[dependencies.mana_inspector]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1]"
+ordering="NONE"
+side="CLIENT"
+
+[[dependencies.mana_inspector]]
+modId="botania"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="CLIENT"
