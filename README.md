@@ -1,0 +1,2 @@
+# ManaInspector
+ai模组
