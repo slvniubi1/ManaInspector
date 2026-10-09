@@ -1,0 +1,28 @@
+plugins {
+    id 'java'
+    id 'net.neoforged.moddev' version '2.0.107'
+}
+
+group = 'com.slvniubi1.manainspector'
+version = '1.0.0'
+
+base { archivesName = 'ManaInspector' }
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+}
+
+neoForge {
+    version = '21.1.229'
+    runs {
+        client {
+            client()
+            gameDirectory = project.file('run')
+        }
+    }
+    mods {
+        mana_inspector { sourceSet sourceSets.main }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
