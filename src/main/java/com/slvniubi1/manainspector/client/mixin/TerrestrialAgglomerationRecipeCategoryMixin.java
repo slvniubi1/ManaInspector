@@ -21,7 +21,7 @@ public abstract class TerrestrialAgglomerationRecipeCategoryMixin {
         if (cost == null) return;
         String text = String.format(Locale.ROOT, "%,d mana", cost);
         var font = Minecraft.getInstance().font;
-        gui.drawString(font, Component.literal(text), 57 - font.width(text) / 2, 115, 0xFF303030, false);
+        gui.drawString(font, Component.literal(text), 57 - font.width(text) / 2, 119, 0xFF3399FF/, false);
     }
 
     private static Integer manaCost(Object recipe) {
