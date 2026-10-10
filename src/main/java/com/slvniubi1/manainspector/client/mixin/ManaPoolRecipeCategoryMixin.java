@@ -21,7 +21,7 @@ public abstract class ManaPoolRecipeCategoryMixin {
         if (cost == null) return;
         String text = String.format(Locale.ROOT, "%,d mana", cost);
         var font = Minecraft.getInstance().font;
-        gui.drawString(font, Component.literal(text), 71 - font.width(text) / 2, 43, 0xFF3399FF/, false);
+        gui.drawString(font, Component.literal(text), 71 - font.width(text) / 2, 43, 0xFF3399FF, false);
     }
 
     private static Integer manaCost(Object recipe, String methodName) {
