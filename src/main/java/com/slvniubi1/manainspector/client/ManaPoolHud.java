@@ -36,12 +36,17 @@ public final class ManaPoolHud {
 
         var state = minecraft.level.getBlockState(blockHit.getBlockPos());
         ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock());
-        if (blockId == null || !"botania".equals(blockId.getNamespace()) || !blockId.getPath().endsWith("mana_pool")) return;
+        if (blockId == null || !"botania".equals(blockId.getNamespace())) return;
+
+        String path = blockId.getPath();
+        boolean manaPool = path.endsWith("mana_pool");
+        boolean manaSpreader = path.endsWith("mana_spreader");
+        if (!manaPool && !manaSpreader) return;
 
         BlockEntity blockEntity = minecraft.level.getBlockEntity(blockHit.getBlockPos());
         if (blockEntity == null) return;
 
-        ManaValues values = readMana(blockEntity);
+        ManaValues values = readMana(blockEntity, manaSpreader);
         if (values == null || values.capacity <= 0) return;
 
         double fraction = Math.max(0.0, Math.min(1.0, (double) values.current / values.capacity));
@@ -52,34 +57,45 @@ public final class ManaPoolHud {
         int top = 8;
 
         graphics.fill(left, top, left + PANEL_WIDTH, top + PANEL_HEIGHT, 0xD91A1724);
-        graphics.fill(left, top, left + PANEL_WIDTH, top + 2, 0xFF35D6C7);
-        graphics.drawString(minecraft.font, Component.literal("Mana Inspector"), left + 12, top + 8, 0xFFFFFFFF, false);
+        graphics.fill(left, top, left + PANEL_WIDTH, top + 2, manaSpreader ? 0xFFFFB74D : 0xFF35D6C7);
+        String title = manaSpreader ? "Mana Spreader" : "Mana Pool";
+        graphics.drawString(minecraft.font, Component.literal(title), left + 12, top + 8, 0xFFFFFFFF, false);
         graphics.drawString(minecraft.font, Component.literal(String.format(Locale.ROOT, "%,d / %,d mana", values.current, values.capacity)), left + 12, top + 21, 0xFFE6E1F2, false);
         String percentage = percent + "%";
-        graphics.drawString(minecraft.font, Component.literal(percentage), left + PANEL_WIDTH - 12 - minecraft.font.width(percentage), top + 21, 0xFF72F1D8, false);
+        graphics.drawString(minecraft.font, Component.literal(percentage), left + PANEL_WIDTH - 12 - minecraft.font.width(percentage), top + 21, 0xFFFFD08A, false);
 
         int barLeft = left + 12;
         int barTop = top + 39;
         graphics.fill(barLeft, barTop, barLeft + BAR_WIDTH, barTop + 8, 0xFF494354);
         int filled = (int) Math.round(BAR_WIDTH * fraction);
+        int fillColor = manaSpreader ? 0xFFFFB74D : 0xFF35D6C7;
         if (filled > 0) {
-            graphics.fill(barLeft, barTop, barLeft + filled, barTop + 8, 0xFF35D6C7);
-            if (filled > 2) graphics.fill(barLeft, barTop, barLeft + filled, barTop + 2, 0xFF8DFFE9);
+            graphics.fill(barLeft, barTop, barLeft + filled, barTop + 8, fillColor);
+            if (filled > 2) graphics.fill(barLeft, barTop, barLeft + filled, barTop + 2, 0xFFFFE0B2);
         }
         graphics.fill(barLeft, barTop + 7, barLeft + BAR_WIDTH, barTop + 8, 0xFF201D29);
     }
 
-    private static ManaValues readMana(BlockEntity blockEntity) {
-        try {
-            Method currentMethod = blockEntity.getClass().getMethod("getCurrentMana");
-            Method capacityMethod = blockEntity.getClass().getMethod("getMaxMana");
-            Object currentValue = currentMethod.invoke(blockEntity);
-            Object capacityValue = capacityMethod.invoke(blockEntity);
-            if (currentValue instanceof Number current && capacityValue instanceof Number capacity) {
-                return new ManaValues(Math.max(0, current.intValue()), Math.max(0, capacity.intValue()));
+    private static ManaValues readMana(BlockEntity blockEntity, boolean manaSpreader) {
+        Object currentValue = invokeNumberMethod(blockEntity, manaSpreader
+                ? new String[] {"getMana", "getCurrentMana"}
+                : new String[] {"getCurrentMana", "getMana"});
+        Object capacityValue = invokeNumberMethod(blockEntity, new String[] {"getMaxMana"});
+        if (currentValue instanceof Number current && capacityValue instanceof Number capacity) {
+            return new ManaValues(Math.max(0, current.intValue()), Math.max(0, capacity.intValue()));
+        }
+        return null;
+    }
+
+    private static Object invokeNumberMethod(BlockEntity blockEntity, String[] methodNames) {
+        for (String methodName : methodNames) {
+            try {
+                Method method = blockEntity.getClass().getMethod(methodName);
+                Object value = method.invoke(blockEntity);
+                if (value instanceof Number) return value;
+            } catch (ReflectiveOperationException | RuntimeException ignored) {
+                // Try the next compatible public API method name.
             }
-        } catch (ReflectiveOperationException | RuntimeException ignored) {
-            // Not a compatible Botania pool entity, or its API is unavailable.
         }
         return null;
     }
