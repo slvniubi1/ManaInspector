@@ -8,7 +8,9 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.api.distmarker.Dist;
@@ -34,14 +36,15 @@ public final class ManaPoolHud {
         HitResult hit = minecraft.hitResult;
         if (!(hit instanceof BlockHitResult blockHit) || hit.getType() != HitResult.Type.BLOCK) return;
 
-        var state = minecraft.level.getBlockState(blockHit.getBlockPos());
+        BlockState state = minecraft.level.getBlockState(blockHit.getBlockPos());
         ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock());
         if (blockId == null || !"botania".equals(blockId.getNamespace())) return;
 
         String path = blockId.getPath().toLowerCase(Locale.ROOT);
         boolean manaPool = path.endsWith("mana_pool");
         boolean manaSpreader = path.endsWith("mana_spreader");
-        boolean manaAltar = path.contains("mana_infusion_altar") || path.equals("alchemy_catalyst");
+        boolean manaAltar = path.contains("mana_infusion_altar") || path.equals("alchemy_catalyst")
+                || path.equals("runic_altar");
         BlockEntity blockEntity = minecraft.level.getBlockEntity(blockHit.getBlockPos());
         if (blockEntity == null) return;
 
@@ -50,21 +53,24 @@ public final class ManaPoolHud {
 
         ManaValues values = readMana(blockEntity);
         if (values == null || values.capacity <= 0) {
-            String title = manaAltar ? "Mana Infusion Altar" : manaSpreader ? "Mana Spreader" : generatingFlower ? "Generating Flower" : "Mana Pool";
-            String message = manaAltar ? "Mana is consumed per recipe" : "Mana data unavailable";
+            String title = manaAltar ? "Mana Altar" : manaSpreader ? "Mana Spreader" : generatingFlower ? "Generating Flower" : "Mana Pool";
+            String message = manaAltar ? "Mana cost depends on recipe" : "Mana data unavailable";
             drawUnavailableHud(event.getGuiGraphics(), minecraft, title, message,
                     manaAltar ? 0xFFB58CFF : manaSpreader ? 0xFFFFB74D : generatingFlower ? 0xFFB4E66E : 0xFF35D6C7);
+            if (manaAltar) {
+                Integer cost = readRecipeManaCost(blockEntity, minecraft.player.getMainHandItem(), state);
+                if (cost != null) drawExtraLine(event.getGuiGraphics(), minecraft, "Recipe cost: " + String.format(Locale.ROOT, "%,d mana", cost), 0xFFDCCBFF);
+            }
             return;
         }
 
         double fraction = Math.max(0.0, Math.min(1.0, (double) values.current / values.capacity));
         int percent = (int) Math.round(fraction * 100.0);
         GuiGraphics graphics = event.getGuiGraphics();
-        int screenWidth = minecraft.getWindow().getGuiScaledWidth();
-        int left = (screenWidth - PANEL_WIDTH) / 2;
+        int left = (minecraft.getWindow().getGuiScaledWidth() - PANEL_WIDTH) / 2;
         int top = 8;
         int accent = manaAltar ? 0xFFB58CFF : manaSpreader ? 0xFFFFB74D : generatingFlower ? 0xFFB4E66E : 0xFF35D6C7;
-        String title = manaAltar ? "Mana Infusion Altar" : manaSpreader ? "Mana Spreader" : generatingFlower ? "Generating Flower" : "Mana Pool";
+        String title = manaAltar ? "Mana Altar" : manaSpreader ? "Mana Spreader" : generatingFlower ? "Generating Flower" : "Mana Pool";
 
         graphics.fill(left, top, left + PANEL_WIDTH, top + PANEL_HEIGHT, 0xD91A1724);
         graphics.fill(left, top, left + PANEL_WIDTH, top + 2, accent);
@@ -82,7 +88,10 @@ public final class ManaPoolHud {
         } else if (generatingFlower) {
             graphics.drawString(minecraft.font, Component.literal("Stored mana in flower"), left + 12, infoY, 0xFFD9F4B0, false);
         } else if (manaAltar) {
-            graphics.drawString(minecraft.font, Component.literal("Mana data read from altar"), left + 12, infoY, 0xFFDCCBFF, false);
+            Integer cost = readRecipeManaCost(blockEntity, minecraft.player.getMainHandItem(), state);
+            String text = cost == null ? "Hold recipe input: cost unknown"
+                    : "Recipe cost: " + String.format(Locale.ROOT, "%,d mana", cost);
+            graphics.drawString(minecraft.font, Component.literal(text), left + 12, infoY, 0xFFDCCBFF, false);
         }
 
         int barLeft = left + 12;
@@ -94,6 +103,21 @@ public final class ManaPoolHud {
             if (filled > 2) graphics.fill(barLeft, barTop, barLeft + filled, barTop + 2, 0xFFFFF0C2);
         }
         graphics.fill(barLeft, barTop + 7, barLeft + BAR_WIDTH, barTop + 8, 0xFF201D29);
+    }
+
+    private static Integer readRecipeManaCost(BlockEntity blockEntity, ItemStack input, BlockState state) {
+        if (input.isEmpty()) return null;
+        try {
+            Method match = blockEntity.getClass().getMethod("getMatchingRecipe", ItemStack.class, BlockState.class);
+            Object recipe = match.invoke(blockEntity, input, state);
+            if (recipe != null) {
+                Object mana = invokeNumberMethod(recipe, new String[] {"getManaToConsume", "getMana"});
+                if (mana instanceof Number number) return Math.max(0, number.intValue());
+            }
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // Recipe API differs between altar variants and Botania versions.
+        }
+        return null;
     }
 
     private static boolean isGeneratingFlower(BlockEntity blockEntity, String path) {
@@ -120,6 +144,11 @@ public final class ManaPoolHud {
         graphics.drawString(minecraft.font, Component.literal(message), left + 12, top + 24, accent, false);
     }
 
+    private static void drawExtraLine(GuiGraphics graphics, Minecraft minecraft, String message, int color) {
+        int left = (minecraft.getWindow().getGuiScaledWidth() - PANEL_WIDTH) / 2;
+        graphics.drawString(minecraft.font, Component.literal(message), left + 12, 58, color, false);
+    }
+
     private static ManaValues readMana(BlockEntity blockEntity) {
         Object currentValue = invokeNumberMethod(blockEntity, new String[] {"getCurrentMana", "getMana"});
         Object capacityValue = invokeNumberMethod(blockEntity, new String[] {"getMaxMana"});
@@ -137,9 +166,7 @@ public final class ManaPoolHud {
                 Object mana = invokeNumberMethod(burst, new String[] {"getMana"});
                 if (mana instanceof Number number) return Math.max(0, number.intValue());
             }
-        } catch (ReflectiveOperationException | RuntimeException ignored) {
-            // Some Botania versions or spreader variants do not expose burst simulation.
-        }
+        } catch (ReflectiveOperationException | RuntimeException ignored) {}
         return null;
     }
 
@@ -149,9 +176,7 @@ public final class ManaPoolHud {
                 Method method = target.getClass().getMethod(methodName);
                 Object value = method.invoke(target);
                 if (value instanceof Number) return value;
-            } catch (ReflectiveOperationException | RuntimeException ignored) {
-                // Try the next compatible public API method name.
-            }
+            } catch (ReflectiveOperationException | RuntimeException ignored) {}
         }
         return null;
     }
