@@ -27,8 +27,8 @@ public abstract class ManaComponentMixin {
             int index = (ticks / 20) % manaValues.length;
             String text = String.format(Locale.ROOT, "%,d mana", manaValues[index]);
             var font = Minecraft.getInstance().font;
-            gui.drawString(font, Component.literal(text), x + 51 - font.width(text) / 2, y + 26,
-                    0xFF303030, false);
+            gui.drawString(font, Component.literal(text), x + 51 - font.width(text) / 2, y + 30,
+                    0xFF3399FF, false);
         } catch (ReflectiveOperationException | RuntimeException ignored) {
             // Keep the original Lexica rendering intact if Patchouli changes its context API.
         }
