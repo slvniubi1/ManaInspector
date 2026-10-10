@@ -21,7 +21,7 @@ public abstract class RunicAltarRecipeCategoryMixin {
         if (cost == null) return;
         String text = String.format(Locale.ROOT, "%,d mana", cost);
         var font = Minecraft.getInstance().font;
-        gui.drawString(font, Component.literal(text), 57 - font.width(text) / 2, 86, 0xFF303030, false);
+        gui.drawString(font, Component.literal(text), 57 - font.width(text) / 2, 90, 0xFF3399FF/, false);
     }
 
     private static Integer manaCost(Object recipe, String methodName) {
