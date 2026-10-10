@@ -38,25 +38,22 @@ public final class ManaPoolHud {
         ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock());
         if (blockId == null || !"botania".equals(blockId.getNamespace())) return;
 
-        String path = blockId.getPath();
+        String path = blockId.getPath().toLowerCase(Locale.ROOT);
         boolean manaPool = path.endsWith("mana_pool");
         boolean manaSpreader = path.endsWith("mana_spreader");
+        boolean manaAltar = path.contains("mana_infusion_altar") || path.equals("alchemy_catalyst");
         BlockEntity blockEntity = minecraft.level.getBlockEntity(blockHit.getBlockPos());
         if (blockEntity == null) return;
 
-        boolean generatingFlower = !manaPool && !manaSpreader && isGeneratingFlower(blockEntity, path);
-        if (!manaPool && !manaSpreader && !generatingFlower) return;
+        boolean generatingFlower = !manaPool && !manaSpreader && !manaAltar && isGeneratingFlower(blockEntity, path);
+        if (!manaPool && !manaSpreader && !manaAltar && !generatingFlower) return;
 
         ManaValues values = readMana(blockEntity);
-        // Do not silently hide the whole HUD if a Botania variant exposes its mana through a different API.
         if (values == null || values.capacity <= 0) {
-            if (generatingFlower) {
-                drawUnavailableHud(event.getGuiGraphics(), minecraft, "Generating Flower",
-                        "Mana data unavailable", 0xFFB4E66E);
-            } else if (manaSpreader) {
-                drawUnavailableHud(event.getGuiGraphics(), minecraft, "Mana Spreader",
-                        "Mana data unavailable", 0xFFFFB74D);
-            }
+            String title = manaAltar ? "Mana Infusion Altar" : manaSpreader ? "Mana Spreader" : generatingFlower ? "Generating Flower" : "Mana Pool";
+            String message = manaAltar ? "Mana is consumed per recipe" : "Mana data unavailable";
+            drawUnavailableHud(event.getGuiGraphics(), minecraft, title, message,
+                    manaAltar ? 0xFFB58CFF : manaSpreader ? 0xFFFFB74D : generatingFlower ? 0xFFB4E66E : 0xFF35D6C7);
             return;
         }
 
@@ -66,8 +63,8 @@ public final class ManaPoolHud {
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int left = (screenWidth - PANEL_WIDTH) / 2;
         int top = 8;
-        int accent = manaSpreader ? 0xFFFFB74D : generatingFlower ? 0xFFB4E66E : 0xFF35D6C7;
-        String title = manaSpreader ? "Mana Spreader" : generatingFlower ? "Generating Flower" : "Mana Pool";
+        int accent = manaAltar ? 0xFFB58CFF : manaSpreader ? 0xFFFFB74D : generatingFlower ? 0xFFB4E66E : 0xFF35D6C7;
+        String title = manaAltar ? "Mana Infusion Altar" : manaSpreader ? "Mana Spreader" : generatingFlower ? "Generating Flower" : "Mana Pool";
 
         graphics.fill(left, top, left + PANEL_WIDTH, top + PANEL_HEIGHT, 0xD91A1724);
         graphics.fill(left, top, left + PANEL_WIDTH, top + 2, accent);
@@ -79,12 +76,13 @@ public final class ManaPoolHud {
         int infoY = top + 32;
         if (manaSpreader) {
             Integer burstMana = readNextBurstMana(blockEntity);
-            String burstText = burstMana == null
-                    ? "Next burst: unavailable"
+            String burstText = burstMana == null ? "Next burst: unavailable"
                     : "Next burst cost: " + String.format(Locale.ROOT, "%,d mana", burstMana);
             graphics.drawString(minecraft.font, Component.literal(burstText), left + 12, infoY, 0xFFFFD08A, false);
         } else if (generatingFlower) {
             graphics.drawString(minecraft.font, Component.literal("Stored mana in flower"), left + 12, infoY, 0xFFD9F4B0, false);
+        } else if (manaAltar) {
+            graphics.drawString(minecraft.font, Component.literal("Mana data read from altar"), left + 12, infoY, 0xFFDCCBFF, false);
         }
 
         int barLeft = left + 12;
@@ -99,20 +97,17 @@ public final class ManaPoolHud {
     }
 
     private static boolean isGeneratingFlower(BlockEntity blockEntity, String path) {
-        // Botania's flower classes inherit this API class; checking the hierarchy covers flowers
-        // whose registry IDs are not in a hard-coded list.
         for (Class<?> type = blockEntity.getClass(); type != null; type = type.getSuperclass()) {
             String name = type.getSimpleName().toLowerCase(Locale.ROOT);
             if (name.contains("generatingflowerblockentity") || name.contains("generatingflower")) return true;
         }
-        String id = path.toLowerCase(Locale.ROOT);
-        return id.contains("endoflame") || id.contains("hydroangeas")
-                || id.contains("gourmaryllis") || id.contains("entropinnyum")
-                || id.contains("kekimurus") || id.contains("spectrolus")
-                || id.contains("rafflowsia") || id.contains("dandelifeon")
-                || id.contains("munchdew") || id.contains("narslimmus")
-                || id.contains("shulk_me_not") || id.contains("orechid")
-                || id.contains("thermalily") || id.contains("rosa_arcana");
+        return path.contains("endoflame") || path.contains("hydroangeas")
+                || path.contains("gourmaryllis") || path.contains("entropinnyum")
+                || path.contains("kekimurus") || path.contains("spectrolus")
+                || path.contains("rafflowsia") || path.contains("dandelifeon")
+                || path.contains("munchdew") || path.contains("narslimmus")
+                || path.contains("shulk_me_not") || path.contains("orechid")
+                || path.contains("thermalily") || path.contains("rosa_arcana");
     }
 
     private static void drawUnavailableHud(GuiGraphics graphics, Minecraft minecraft,
