@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.slvniubi1.manainspector.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ManaPoolRecipeCategoryMixin",
+    "RunicAltarRecipeCategoryMixin",
+    "TerrestrialAgglomerationRecipeCategoryMixin",
+    "ManaComponentMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

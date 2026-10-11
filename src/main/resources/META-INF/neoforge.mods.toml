@@ -29,3 +29,6 @@ type="required"
 versionRange="*"
 ordering="AFTER"
 side="CLIENT"
+
+[[mixins]]
+config="mana_inspector.mixins.json"
